@@ -1,146 +1,160 @@
 package controller;  
 
-import model.HocSinh;  
 import view.JFHocSinh;  
-
+import model.HocSinh;  // Giả định bạn có lớp mô hình HocSinh  
+import java.sql.*;  
 import javax.swing.*;  
-import javax.swing.table.DefaultTableModel;  
-import java.sql.Connection;  
-import java.sql.DriverManager;  
-import java.sql.PreparedStatement;  
-import java.sql.ResultSet;  
-import java.sql.SQLException;  
-import java.sql.Date;  
-import java.awt.event.ActionEvent;  
-import java.awt.event.ActionListener;  
 import java.util.ArrayList;  
-import java.util.List;  
+import schoolmanagement.jdbcSqlServer; // Đường dẫn đến lớp kết nối cơ sở dữ liệu của bạn  
 
 public class HocSinhController {  
-    private JFHocSinh frame;  
-    private List<HocSinh> hocSinhList; // Danh sách học sinh để quản lý  
+    private JFHocSinh view;  // Giao diện  
+    private ArrayList<HocSinh> studentList;  // Danh sách học sinh  
 
-    private String url = "jdbc:sqlserver://localhost:1433;databaseName=schoolmanage3;encrypt=true;trustServerCertificate=true";  
-    private String username = "sa";  
-    private String password = "123456789";  
-
-    public HocSinhController(JFHocSinh frame) {  
-        this.frame = frame;  
-        this.hocSinhList = new ArrayList<>(); // Khởi tạo danh sách học sinh  
-        initController();  
-        loadHocSinhList(); // Tải danh sách học sinh từ cơ sở dữ liệu khi khởi động  
+    public HocSinhController(JFHocSinh view) {  
+        this.view = view;  
+        this.studentList = new ArrayList<>();  
     }  
 
-    private void initController() {  
-        // Action listener cho nút thêm học sinh  
-        frame.getBtnThem().addActionListener(new ActionListener() {  
-            public void actionPerformed(ActionEvent e) {  
-                addHocSinh();  
-            }  
-        });  
+    // Tải danh sách học sinh từ cơ sở dữ liệu  
+    public void loadHocSinhList() {  
+        try (Connection connection = jdbcSqlServer.getConnection()) {   
+            String sqlSelect = "SELECT * FROM HOCSINH";  // Tùy chỉnh tên bảng  
+            PreparedStatement statement = connection.prepareStatement(sqlSelect);  
+            ResultSet resultSet = statement.executeQuery();  
 
-        // Action listener cho nút xóa học sinh  
-        frame.getBtnXoa().addActionListener(new ActionListener() {  
-            public void actionPerformed(ActionEvent e) {  
-                deleteHocSinh();  
-            }  
-        });  
-
-        // Action listener cho nút hiển thị danh sách học sinh  
-        frame.getBtnDanhSach().addActionListener(new ActionListener() {  
-            public void actionPerformed(ActionEvent e) {  
-                displayHocSinhList();  
-            }  
-        });  
-    }  
-
-    private void addHocSinh() {  
-        String maHocSinh = frame.getTxtMaHocSinh().getText();  
-        String hoTen = frame.getTxtHoTen().getText();  
-        String gioiTinh = (String) frame.getComboBoxGioiTinh().getSelectedItem();  
-        Date ngaySinh = Date.valueOf(frame.getTxtNgaySinh().getText());  
-        String diaChi = frame.getTxtDiaChi().getText();  
-        String email = frame.getTxtEmail().getText();  
-        String maLop = ""; // Bạn có thể thêm input này từ người dùng nếu cần  
-        String nienKhoa = frame.getTxtNienKhoa().getText();  
-
-        HocSinh hocSinh = new HocSinh(maHocSinh, hoTen, gioiTinh, ngaySinh, diaChi, email, maLop, nienKhoa);  
-        hocSinhList.add(hocSinh); // Thêm vào danh sách học sinh  
-
-        try (Connection connection = DriverManager.getConnection(url, username, password);  
-             PreparedStatement pstmt = connection.prepareStatement("INSERT INTO HOCSINH (MaHocSinh, HoTen, GioiTinh, NgaySinh, DiaChi, Email, NienKhoa) VALUES (?, ?, ?, ?, ?, ?, ?)")) {  
-            pstmt.setString(1, maHocSinh);  
-            pstmt.setString(2, hoTen);  
-            pstmt.setString(3, gioiTinh);  
-            pstmt.setDate(4, ngaySinh);  
-            pstmt.setString(5, diaChi);  
-            pstmt.setString(6, email);  
-            pstmt.setString(7, nienKhoa);  
-            pstmt.executeUpdate();  
-            JOptionPane.showMessageDialog(frame, "Thêm học sinh thành công!");  
-        } catch (SQLException e) {  
-            e.printStackTrace();  
-            JOptionPane.showMessageDialog(frame, "Lỗi thêm học sinh vào cơ sở dữ liệu.");  
-        }  
-
-        clearInputFields();  
-    }  
-
-    private void deleteHocSinh() {  
-        String maHocSinh = frame.getTxtMaHocSinh().getText();  
-        hocSinhList.removeIf(hs -> hs.getMaHocSinh().equals(maHocSinh)); // Xóa học sinh theo mã số  
-
-        try (Connection connection = DriverManager.getConnection(url, username, password);  
-             PreparedStatement pstmt = connection.prepareStatement("DELETE FROM HOCSINH WHERE MaHocSinh = ?")) {  
-            pstmt.setString(1, maHocSinh);  
-            pstmt.executeUpdate();  
-            JOptionPane.showMessageDialog(frame, "Xóa học sinh thành công!");  
-        } catch (SQLException e) {  
-            e.printStackTrace();  
-            JOptionPane.showMessageDialog(frame, "Lỗi xóa học sinh khỏi cơ sở dữ liệu.");  
-        }  
-
-        clearInputFields();  
-    }  
-
-    private void displayHocSinhList() {  
-        DefaultTableModel model = new DefaultTableModel(new String[]{"Mã Học Sinh", "Họ Tên", "Giới Tính", "Ngày Sinh", "Địa Chỉ", "Email", "Niên Khóa"}, 0);  
-        for (HocSinh hs : hocSinhList) {  
-            model.addRow(new Object[]{hs.getMaHocSinh(), hs.getHoTen(), hs.getGioiTinh(), hs.getNgaySinh(), hs.getDiaChi(), hs.getEmail(), hs.getNienKhoa()});  
-        }  
-        frame.getTable().setModel(model);  
-    }  
-
-    private void clearInputFields() {  
-        frame.getTxtMaHocSinh().setText("");  
-        frame.getTxtHoTen().setText("");  
-        frame.getTxtNgaySinh().setText("");  
-        frame.getTxtDiaChi().setText("");  
-        frame.getTxtEmail().setText("");  
-        frame.getComboBoxGioiTinh().setSelectedIndex(0);  
-        frame.getTxtNienKhoa().setText(""); // Clear Niên Khóa input  
-    }  
-
-    private void loadHocSinhList() {  
-        try (Connection connection = DriverManager.getConnection(url, username, password);  
-             PreparedStatement pstmt = connection.prepareStatement("SELECT * FROM HOCSINH");  
-             ResultSet rs = pstmt.executeQuery()) {  
-            while (rs.next()) {  
+            studentList.clear();  // Xóa danh sách hiện tại  
+            while (resultSet.next()) {  
                 HocSinh hocSinh = new HocSinh(  
-                    rs.getString("MaHocSinh"),  
-                    rs.getString("HoTen"),  
-                    rs.getString("GioiTinh"),  
-                    rs.getDate("NgaySinh"),  
-                    rs.getString("DiaChi"),  
-                    rs.getString("Email"),  
-                    "", // Thêm căn cứ nếu cần  
-                    rs.getString("NienKhoa")  
+                    resultSet.getString("MaHocSinh"),  
+                    resultSet.getString("HoTen"),  
+                    resultSet.getString("GioiTinh"),  
+                    resultSet.getDate("NgaySinh"),  
+                    resultSet.getString("DiaChi"),  
+                    resultSet.getString("Email"),  
+                    resultSet.getString("NienKhoa"),  
+                    resultSet.getString("MaLop")  // Lấy mã lớp  
                 );  
-                hocSinhList.add(hocSinh);  
+                studentList.add(hocSinh);  
             }  
-        } catch (SQLException e) {  
-            e.printStackTrace();  
-            JOptionPane.showMessageDialog(frame, "Lỗi tải danh sách học sinh từ cơ sở dữ liệu.");  
+            // Chuyển danh sách đến giao diện  
+            updateStudentTable();  
+        } catch (SQLException ex) {  
+            JOptionPane.showMessageDialog(view, "Lỗi khi lấy danh sách học sinh: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);  
         }  
+    }  
+
+    // Phương thức để thêm học sinh  
+    public void addHocSinh() {  
+        // Lấy dữ liệu từ giao diện  
+        String maHocSinh = view.getTxtMaHocSinh().getText().trim();  
+        String hoTen = view.getTxtHoTen().getText().trim();  
+        String gioiTinh = view.getComboBoxGioiTinh().getSelectedItem().toString();  
+        String ngaySinhStr = view.getTxtNgaySinh().getText().trim();  
+        String diaChi = view.getTxtDiaChi().getText().trim();  
+        String email = view.getTxtEmail().getText().trim();  
+        String nienKhoa = view.getTxtNienKhoa().getText().trim();  
+
+        // Kiểm tra đầu vào  
+        if (maHocSinh.isEmpty() || hoTen.isEmpty() || ngaySinhStr.isEmpty() || email.isEmpty() || diaChi.isEmpty() || nienKhoa.isEmpty()) {  
+            JOptionPane.showMessageDialog(view, "Vui lòng điền đầy đủ thông tin.", "Thông báo", JOptionPane.WARNING_MESSAGE);  
+            return;  
+        }  
+
+        try (Connection connection = jdbcSqlServer.getConnection()) {  
+            String sqlInsert = "INSERT INTO HOCSINH (MaHocSinh, HoTen, GioiTinh, NgaySinh, DiaChi, Email, NienKhoa) VALUES (?, ?, ?, ?, ?, ?, ?)";  
+            PreparedStatement statement = connection.prepareStatement(sqlInsert);  
+            statement.setString(1, maHocSinh);  
+            statement.setString(2, hoTen);  
+            statement.setString(3, gioiTinh);  
+            statement.setDate(4, java.sql.Date.valueOf(ngaySinhStr)); // Format yyyy-MM-dd  
+            statement.setString(5, diaChi);  
+            statement.setString(6, email);  
+            statement.setString(7, nienKhoa);  
+            statement.executeUpdate();  
+
+            // Tải lại danh sách sau khi thêm  
+            loadHocSinhList();  
+            clearInputs();  
+        } catch (SQLException ex) {  
+            JOptionPane.showMessageDialog(view, "Lỗi khi thêm học sinh: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);  
+        }  
+    }  
+
+    // Phương thức cập nhật học sinh  
+    public void updateHocSinh() {  
+        String maHocSinh = view.getTxtMaHocSinh().getText().trim();  
+        String hoTen = view.getTxtHoTen().getText().trim();  
+        String gioiTinh = view.getComboBoxGioiTinh().getSelectedItem().toString();  
+        String ngaySinhStr = view.getTxtNgaySinh().getText().trim();  
+        String diaChi = view.getTxtDiaChi().getText().trim();  
+        String email = view.getTxtEmail().getText().trim();  
+        String nienKhoa = view.getTxtNienKhoa().getText().trim();  
+
+        // Kiểm tra đầu vào  
+        if (maHocSinh.isEmpty() || hoTen.isEmpty() || ngaySinhStr.isEmpty()) {  
+            JOptionPane.showMessageDialog(view, "Vui lòng điền đầy đủ thông tin.", "Thông báo", JOptionPane.WARNING_MESSAGE);  
+            return;  
+        }  
+
+        try (Connection connection = jdbcSqlServer.getConnection()) {  
+            String sqlUpdate = "UPDATE HOCSINH SET HoTen=?, GioiTinh=?, NgaySinh=?, DiaChi=?, Email=?, NienKhoa=? WHERE MaHocSinh=?";  
+            PreparedStatement statement = connection.prepareStatement(sqlUpdate);  
+            statement.setString(1, hoTen);  
+            statement.setString(2, gioiTinh);  
+            statement.setDate(3, java.sql.Date.valueOf(ngaySinhStr)); // Format yyyy-MM-dd  
+            statement.setString(4, diaChi);  
+            statement.setString(5, email);  
+            statement.setString(6, nienKhoa);  
+            statement.setString(7, maHocSinh);  
+            statement.executeUpdate();  
+
+            // Tải lại danh sách sau khi cập nhật  
+            loadHocSinhList();  
+            clearInputs();  
+        } catch (SQLException ex) {  
+            JOptionPane.showMessageDialog(view, "Lỗi khi cập nhật học sinh: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);  
+        }  
+    }  
+
+    // Phương thức xóa học sinh  
+    public void deleteHocSinh() {  
+        String maHocSinh = view.getTxtMaHocSinh().getText().trim();  
+
+        // Kiểm tra đầu vào  
+        if (maHocSinh.isEmpty()) {  
+            JOptionPane.showMessageDialog(view, "Vui lòng nhập mã học sinh cần xóa.", "Thông báo", JOptionPane.WARNING_MESSAGE);  
+            return;  
+        }  
+
+        try (Connection connection = jdbcSqlServer.getConnection()) {  
+            String sqlDelete = "DELETE FROM HOCSINH WHERE MaHocSinh=?";  
+            PreparedStatement statement = connection.prepareStatement(sqlDelete);  
+            statement.setString(1, maHocSinh);  
+            statement.executeUpdate();  
+
+            // Tải lại danh sách sau khi xóa  
+            loadHocSinhList();
+            clearInputs();  
+        } catch (SQLException ex) {  
+            JOptionPane.showMessageDialog(view, "Lỗi khi xóa học sinh: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);  
+        }  
+    }  
+
+    // Cập nhật bảng học sinh trong giao diện  
+    private void updateStudentTable() {  
+        // Cập nhật bảng trong giao diện với danh sách học sinh  
+        view.updateStudentTable(studentList);  
+    }  
+
+    // Xóa dữ liệu trong các trường nhập liệu  
+    private void clearInputs() {  
+        view.getTxtMaHocSinh().setText("");  
+        view.getTxtHoTen().setText("");  
+        view.getComboBoxGioiTinh().setSelectedIndex(0); // Giả định có một giá trị mặc định  
+        view.getTxtNgaySinh().setText("");  
+        view.getTxtDiaChi().setText("");  
+        view.getTxtEmail().setText("");  
+        view.getTxtNienKhoa().setText("");  
     }  
 }
