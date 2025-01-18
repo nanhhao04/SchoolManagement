@@ -14,7 +14,7 @@ import java.util.List;
 
 public class JFQuanLyChung extends JFrame {
     private JPanel contentPane;
-    private JTextField txtMaLop, txtTenLop, txtMaGiaoVien;
+    private JTextField txtMaLop, txtTenLop, txtMaGiaoVien, txtSiSo;
     private JComboBox<String> comboBoxKhoi;
     private JTable classTable;
     private DefaultTableModel classTableModel;
@@ -84,6 +84,14 @@ public class JFQuanLyChung extends JFrame {
         txtMaGiaoVien.setBounds(130, 190, 150, 25);
         contentPane.add(txtMaGiaoVien);
 
+        JLabel lblSiSo = new JLabel("Sĩ Số:");
+        lblSiSo.setBounds(20, 230, 100, 25);
+        contentPane.add(lblSiSo);
+
+        txtSiSo = new JTextField();
+        txtSiSo.setBounds(130, 230, 150, 25);
+        contentPane.add(txtSiSo);
+
         btnHienThiLop = new JButton("Hiển Thị Lớp");
         btnHienThiLop.setBounds(300, 70, 220, 25);
         contentPane.add(btnHienThiLop);
@@ -96,7 +104,7 @@ public class JFQuanLyChung extends JFrame {
         classTableModel = new DefaultTableModel(columnNames, 0);
         classTable = new JTable(classTableModel);
         JScrollPane scrollPane = new JScrollPane(classTable);
-        scrollPane.setBounds(20, 240, 840, 200);
+        scrollPane.setBounds(20, 288, 840, 200);
         contentPane.add(scrollPane);
 
         btnCapNhatLop = new JButton("Cập Nhật");
@@ -114,10 +122,24 @@ public class JFQuanLyChung extends JFrame {
         loadKhoi();
 
         btnHienThiLop.addActionListener(e -> showClassesForSelectedKhoi());
-        btnThemLop.addActionListener(e -> lopController.addLop(txtMaLop, txtTenLop, txtMaGiaoVien, comboBoxKhoi));
-        btnCapNhatLop.addActionListener(e -> lopController.updateLop(classTable, txtMaLop, txtTenLop, txtMaGiaoVien, comboBoxKhoi));
-        btnXoaLop.addActionListener(e -> lopController.deleteLop(classTable));
+        btnThemLop.addActionListener(e -> {
+            lopController.addLop(txtMaLop, txtTenLop, txtMaGiaoVien, txtSiSo, comboBoxKhoi, classTable);
+            clearInputFields();
+        });
+        btnCapNhatLop.addActionListener(e -> {
+            lopController.updateLop(classTable, txtMaLop, txtTenLop, txtMaGiaoVien, txtSiSo, comboBoxKhoi);
+            clearInputFields();
+        });
+        btnXoaLop.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(null, "Bạn có chắc chắn muốn xóa lớp này?", "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                lopController.deleteLop(classTable);
+                clearInputFields();
+            }
+        });
         btnQuayLai.addActionListener(e -> dispose());
+
+        setupTableListener();
     }
 
     private void loadKhoi() {
@@ -129,17 +151,47 @@ public class JFQuanLyChung extends JFrame {
 
     private void showClassesForSelectedKhoi() {
         String selectedKhoi = (String) comboBoxKhoi.getSelectedItem();
-        if (selectedKhoi != null) {
-            String maKhoi = selectedKhoi.split(" - ")[0]; // Lấy mã khối
-            List<Lop> classList = lopController.getClassesByKhoi(maKhoi);
-            classTableModel.setRowCount(0);
-            if (classList.isEmpty()) {
-                JOptionPane.showMessageDialog(null, "Không có lớp nào trong khối này!");
-                return;
-            }
-            for (Lop lop : classList) {
-                classTableModel.addRow(new Object[]{lop.getMaLop(), lop.getTenLop(), lop.getSiSo(), lop.getMaKhoi(), lop.getMaGiaoVien()});
-            }
+        if (selectedKhoi == null) {
+            JOptionPane.showMessageDialog(null, "Vui lòng chọn khối để hiển thị lớp!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
         }
+
+        String maKhoi = selectedKhoi.split(" - ")[0];
+        List<Lop> classList = lopController.getClassesByKhoi(maKhoi);
+        classTableModel.setRowCount(0);
+        if (classList.isEmpty()) {
+            JOptionPane.showMessageDialog(null, "Không có lớp nào trong khối này!");
+            return;
+        }
+        for (Lop lop : classList) {
+            classTableModel.addRow(new Object[]{lop.getMaLop(), lop.getTenLop(), lop.getSiSo(), lop.getMaKhoi(), lop.getMaGiaoVien()});
+        }
+    }
+
+    private void setupTableListener() {
+        classTable.getSelectionModel().addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting() && classTable.getSelectedRow() >= 0) {
+                int selectedRow = classTable.getSelectedRow();
+                txtMaLop.setText(classTable.getValueAt(selectedRow, 0).toString());
+                txtTenLop.setText(classTable.getValueAt(selectedRow, 1).toString());
+                txtSiSo.setText(classTable.getValueAt(selectedRow, 2).toString());
+                String maKhoi = classTable.getValueAt(selectedRow, 3).toString();
+                for (int i = 0; i < comboBoxKhoi.getItemCount(); i++) {
+                    if (comboBoxKhoi.getItemAt(i).startsWith(maKhoi + " -")) {
+                        comboBoxKhoi.setSelectedIndex(i);
+                        break;
+                    }
+                }
+                txtMaGiaoVien.setText(classTable.getValueAt(selectedRow, 4).toString());
+            }
+        });
+    }
+
+    private void clearInputFields() {
+        txtMaLop.setText("");
+        txtTenLop.setText("");
+        txtMaGiaoVien.setText("");
+        txtSiSo.setText("");
+        comboBoxKhoi.setSelectedIndex(-1);
     }
 }
